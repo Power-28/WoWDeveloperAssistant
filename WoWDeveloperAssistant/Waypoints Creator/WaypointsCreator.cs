@@ -1236,30 +1236,22 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
                 waypoints.RecalculateIdsAndGuids(originalCreature.entry);
             }
 
-            if (!onlyToClipboard)
-            {
-                if (possibleCreature.Key != "")
-                {
-                    SQLtext += $"-- Pathing for possible creature {originalCreature.name} Entry: {originalCreature.entry}\r\n";
-                }
-                else
-                {
-                    SQLtext += $"-- Pathing for {originalCreature.name} Entry: {originalCreature.entry}\r\n";
-                }
-            }
+            SQLtext += $"-- Pathing for {originalCreature.name} Entry: {originalCreature.entry}\r\n";
+            SQLtext += $"SET @LinkedId := 'SET_LINK';\r\n";
+            SQLtext += $"SET @NAMETAG := 'SET_TAG';" + "\r\n\r\n";
 
-            if (possibleCreature.Key != "")
-            {
-                SQLtext += $"SET @LinkedId := '{possibleCreature.Key}';\r\n";
-            }
-            else
-            {
-                SQLtext += $"SET @LinkedId := '{originalCreature.GetLinkedId()}';\r\n";
-            }
+            float DefaultOrientation = float.Parse(mainForm.grid_WaypointsCreator_Waypoints[4, 0].Value.ToString());
+            SQLtext += $"UPDATE `creature` SET `NameTag` = @NAMETAG, `spawndist` = 0, `MovementType` = 2, `position_x` = '{waypoints[0].movePosition.x.GetValueWithoutComma()}', `position_y` = '{waypoints[0].movePosition.y.GetValueWithoutComma()}', `position_z` = '{waypoints[0].movePosition.z.GetValueWithoutComma()}', `orientation` = '{DefaultOrientation.GetValueWithoutComma()}' WHERE `linked_id` = @LinkedId;\r\n\r\n";
 
-            SQLtext += "UPDATE `creature` SET `spawndist` = 0, `MovementType` = " + (originalCreature.isCyclic ? 4 : 3) + " WHERE `linked_id` = @LinkedId;\r\n";
-            SQLtext += "DELETE FROM `waypoint_data` WHERE `linked_id` = @LinkedId;" + "\r\n";
-            SQLtext += "INSERT INTO `waypoint_data` (`linked_id`, `point`, `position_x`, `position_y`, `position_z`, `orientation`, `delay`, `move_type`, `action`, `action_chance`, `speed`) VALUES" + "\r\n";
+            SQLtext += $"SET @NEW_LINK := (SELECT linked_id FROM `creature` WHERE `id` = {originalCreature.entry} AND `NameTag` = @NAMETAG);\r\n";
+            SQLtext += $"SET @OLD_PATH := (SELECT path_id FROM `creature_addon` WHERE `linked_id` = @NEW_LINK);" + "\r\n";
+            SQLtext += $"SET @GUID := (SELECT `guid` FROM `creature` WHERE `linked_id` = @NEW_LINK);" + "\r\n";
+            SQLtext += $"SET @NEW_PATH := @GUID * 10;" + "\r\n\r\n";
+
+            SQLtext += $"UPDATE `creature_addon` SET `path_id` = @NEW_PATH WHERE `linked_id` = @NEW_LINK;" + "\r\n\r\n";
+
+            SQLtext += "DELETE FROM `waypoint_data` WHERE `id` IN (@OLD_PATH, @NEW_PATH);" + "\r\n";
+            SQLtext += "INSERT INTO `waypoint_data` (`id`, `point`, `position_x`, `position_y`, `position_z`, `orientation`, `delay`, `move_type`, `action`, `action_chance`, `speed`, `splineflags`) VALUES" + "\r\n";
 
             for (int i = 0; i < waypoints.Count; i++)
             {
@@ -1271,26 +1263,15 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
 
                 if (i < (waypoints.Count - 1))
                 {
-                    SQLtext += $"(@LinkedId, {i + 1}, {waypoint.movePosition.x.GetValueWithoutComma()}, {waypoint.movePosition.y.GetValueWithoutComma()}, {waypoint.movePosition.z.GetValueWithoutComma()}, {orientation.GetValueWithoutComma()}, {delay}, {(uint)waypoint.moveType}, {waypoint.GetScriptId()}, 100, {wpSpeed.GetValueWithoutComma()}" + "),\r\n";
+                    SQLtext += $"(@NEW_PATH, {i + 1}, {waypoint.movePosition.x.GetValueWithoutComma()}, {waypoint.movePosition.y.GetValueWithoutComma()}, {waypoint.movePosition.z.GetValueWithoutComma()}, {orientation.GetValueWithoutComma()}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + "),\r\n";
                 }
                 else
                 {
-                    SQLtext += $"(@LinkedId, {i + 1}, {waypoint.movePosition.x.GetValueWithoutComma()}, {waypoint.movePosition.y.GetValueWithoutComma()}, {waypoint.movePosition.z.GetValueWithoutComma()}, {orientation.GetValueWithoutComma()}, {delay}, {(uint)waypoint.moveType}, {waypoint.GetScriptId()}, 100, {wpSpeed.GetValueWithoutComma()}" + ");\r\n";
+                    SQLtext += $"(@NEW_PATH, {i + 1}, {waypoint.movePosition.x.GetValueWithoutComma()}, {waypoint.movePosition.y.GetValueWithoutComma()}, {waypoint.movePosition.z.GetValueWithoutComma()}, {orientation.GetValueWithoutComma()}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + ");\r\n";
                 }
             }
 
-            if (!onlyToClipboard)
-            {
-                if (possibleCreature.Key != "")
-                {
-                    SQLtext += $"-- Guid is unknown because creature is guessed .go {possibleCreature.Value.spawnPosition.x.GetValueWithoutComma()} {possibleCreature.Value.spawnPosition.y.GetValueWithoutComma()} {possibleCreature.Value.spawnPosition.z.GetValueWithoutComma()}\r\n";
-                    SQLtext += $"-- Original creature guid is {originalCreature.guid}\r\n";
-                }
-                else
-                {
-                    SQLtext += $"-- {originalCreature.guid} .go {originalCreature.spawnPosition.x.GetValueWithoutComma()} {originalCreature.spawnPosition.y.GetValueWithoutComma()} {originalCreature.spawnPosition.z.GetValueWithoutComma()}\r\n";
-                }
-            }
+            SQLtext += $"-- .go {waypoints[0].movePosition.x.GetValueWithoutComma()} {waypoints[0].movePosition.y.GetValueWithoutComma()} {waypoints[0].movePosition.z.GetValueWithoutComma()}\r\n";
 
             if (originalCreature.filterKeys.Count != 0)
             {
@@ -1494,6 +1475,23 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
             GraphPath();
         }
 
+        public void OrderByHighestXPoint()
+        {
+            if (mainForm.grid_WaypointsCreator_Waypoints.Rows.Count < 2)
+                return;
+
+            var orderedRows = mainForm.grid_WaypointsCreator_Waypoints.Rows.Cast<DataGridViewRow>().OrderByDescending(r => Convert.ToSingle(r.Cells[1].Value)).ToList();
+
+            for (int i = 0; i < mainForm.grid_WaypointsCreator_Waypoints.Rows.Count; i++)
+            {
+                orderedRows[i].Cells[0].Value = i + 1;
+            }
+
+            mainForm.grid_WaypointsCreator_Waypoints.Rows.Clear();
+            mainForm.grid_WaypointsCreator_Waypoints.Rows.AddRange(orderedRows.ToArray());
+            GraphPath();
+        }
+
         public void RemoveDuplicatePoints(List<Waypoint> waypoints)
         {
             List<Waypoint> waypointsList = new List<Waypoint>();
@@ -1528,7 +1526,7 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
                 waypoints = (from DataGridViewRow row in mainForm.grid_WaypointsCreator_Waypoints.Rows select (Waypoint)row.Cells[8].Value).ToList();
                 waypoints.Reverse();
                 waypoints.RemoveAt(0);
-                waypoints.RemoveAt(waypoints.Count - 1);
+                // waypoints.RemoveAt(waypoints.Count - 1);
 
                 int index = mainForm.grid_WaypointsCreator_Waypoints.Rows.Count + 1;
 

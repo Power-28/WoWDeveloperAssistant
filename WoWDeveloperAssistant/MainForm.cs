@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
-using System.IO;
 using System.Windows.Forms;
-using WoWDeveloperAssistant.Core_Script_Templates;
-using WoWDeveloperAssistant.Database_Advisor;
-using WoWDeveloperAssistant.Waypoints_Creator;
 using WoWDeveloperAssistant.Achievements;
-using WoWDeveloperAssistant.Creature_Scripts_Creator;
 using WoWDeveloperAssistant.Conditions_Creator;
+using WoWDeveloperAssistant.Core_Script_Templates;
+using WoWDeveloperAssistant.Creature_Scripts_Creator;
+using WoWDeveloperAssistant.Database_Advisor;
 using WoWDeveloperAssistant.Parsed_File_Advisor;
+using WoWDeveloperAssistant.Waypoints_Creator;
 
 namespace WoWDeveloperAssistant
 {
@@ -275,6 +273,11 @@ namespace WoWDeveloperAssistant
         private void removeDuplicatePointsToolStripMenuItem_WC_Click(object sender, EventArgs e)
         {
             waypointsCreator.RemoveDuplicatePoints();
+        }
+
+        private void orderByHighestXPointToolStripMenuItem_WC_Click(object sender, EventArgs e)
+        {
+            waypointsCreator.OrderByHighestXPoint();
         }
 
         private void createReturnPathToolStripMenuItem_WC_Click(object sender, EventArgs e)
