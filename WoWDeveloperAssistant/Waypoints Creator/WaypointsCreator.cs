@@ -11,6 +11,7 @@ using static WoWDeveloperAssistant.Misc.Utils;
 using static WoWDeveloperAssistant.Misc.Packets;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection;
+using System.Globalization;
 
 namespace WoWDeveloperAssistant.Waypoints_Creator
 {
@@ -1229,6 +1230,7 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
             }
 
             List<Waypoint> waypoints = (from DataGridViewRow row in mainForm.grid_WaypointsCreator_Waypoints.Rows select (Waypoint)row.Cells[8].Value).ToList();
+
             string SQLtext = "";
 
             if (Properties.Settings.Default.Scripts && originalCreature.waypoints.GetScriptsCount() != 0)
@@ -1243,9 +1245,9 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
             float DefaultOrientation = float.Parse(mainForm.grid_WaypointsCreator_Waypoints[4, 0].Value.ToString());
             SQLtext += $"UPDATE `creature` SET `NameTag` = @NAMETAG, `spawndist` = 0, `MovementType` = 2, `position_x` = '{waypoints[0].movePosition.x.GetValueWithoutComma()}', `position_y` = '{waypoints[0].movePosition.y.GetValueWithoutComma()}', `position_z` = '{waypoints[0].movePosition.z.GetValueWithoutComma()}', `orientation` = '{DefaultOrientation.GetValueWithoutComma()}' WHERE `linked_id` = @LinkedId;\r\n\r\n";
 
-            SQLtext += $"SET @NEW_LINK := (SELECT linked_id FROM `creature` WHERE `id` = {originalCreature.entry} AND `NameTag` = @NAMETAG);\r\n";
-            SQLtext += $"SET @OLD_PATH := (SELECT path_id FROM `creature_addon` WHERE `linked_id` = @NEW_LINK);" + "\r\n";
-            SQLtext += $"SET @GUID := (SELECT `guid` FROM `creature` WHERE `linked_id` = @NEW_LINK);" + "\r\n";
+            SQLtext += $"SET @NEW_LINK := (SELECT IFNULL(`linked_id`, 0) FROM `creature` WHERE `id` = {originalCreature.entry} AND `NameTag` = @NAMETAG);\r\n";
+            SQLtext += $"SET @OLD_PATH := (SELECT IFNULL(`path_id`, 0) FROM `creature_addon` WHERE `linked_id` = @NEW_LINK);" + "\r\n";
+            SQLtext += $"SET @GUID := (SELECT IFNULL(`guid`, 0) FROM `creature` WHERE `linked_id` = @NEW_LINK);" + "\r\n";
             SQLtext += $"SET @NEW_PATH := @GUID * 10;" + "\r\n\r\n";
 
             SQLtext += $"UPDATE `creature_addon` SET `path_id` = @NEW_PATH WHERE `linked_id` = @NEW_LINK;" + "\r\n\r\n";
@@ -1263,11 +1265,11 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
 
                 if (i < (waypoints.Count - 1))
                 {
-                    SQLtext += $"(@NEW_PATH, {i + 1}, {waypoint.movePosition.x.GetValueWithoutComma()}, {waypoint.movePosition.y.GetValueWithoutComma()}, {waypoint.movePosition.z.GetValueWithoutComma()}, {orientation.GetValueWithoutComma()}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + "),\r\n";
+                    SQLtext += $"(@NEW_PATH, {(i + 1).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + "),\r\n";
                 }
                 else
                 {
-                    SQLtext += $"(@NEW_PATH, {i + 1}, {waypoint.movePosition.x.GetValueWithoutComma()}, {waypoint.movePosition.y.GetValueWithoutComma()}, {waypoint.movePosition.z.GetValueWithoutComma()}, {orientation.GetValueWithoutComma()}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + ");\r\n";
+                    SQLtext += $"(@NEW_PATH, {(i + 1).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + ");\r\n";
                 }
             }
 
@@ -1477,10 +1479,39 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
 
         public void OrderByHighestXPoint()
         {
+            /*
             if (mainForm.grid_WaypointsCreator_Waypoints.Rows.Count < 2)
                 return;
 
             var orderedRows = mainForm.grid_WaypointsCreator_Waypoints.Rows.Cast<DataGridViewRow>().OrderByDescending(r => Convert.ToSingle(r.Cells[1].Value)).ToList();
+
+            for (int i = 0; i < mainForm.grid_WaypointsCreator_Waypoints.Rows.Count; i++)
+            {
+                orderedRows[i].Cells[0].Value = i + 1;
+            }
+
+            mainForm.grid_WaypointsCreator_Waypoints.Rows.Clear();
+            mainForm.grid_WaypointsCreator_Waypoints.Rows.AddRange(orderedRows.ToArray());
+            GraphPath();
+            */
+
+            if (mainForm.grid_WaypointsCreator_Waypoints.Rows.Count < 2)
+                return;
+
+            var referencePoint = mainForm.grid_WaypointsCreator_Waypoints.Rows.Cast<DataGridViewRow>()
+                .OrderByDescending(r => Convert.ToSingle(r.Cells[1].Value))
+                .First();
+
+            var orderedRows = mainForm.grid_WaypointsCreator_Waypoints.Rows.Cast<DataGridViewRow>()
+                .Select(r => new {
+                    Row = r,
+                    Distance = Math.Sqrt(Math.Pow(Convert.ToSingle(r.Cells[1].Value) - Convert.ToSingle(referencePoint.Cells[1].Value), 2) +
+                                         Math.Pow(Convert.ToSingle(r.Cells[2].Value) - Convert.ToSingle(referencePoint.Cells[2].Value), 2) +
+                                         Math.Pow(Convert.ToSingle(r.Cells[3].Value) - Convert.ToSingle(referencePoint.Cells[3].Value), 2))
+                })
+                .OrderBy(p => p.Distance)
+                .Select(p => p.Row)
+                .ToList();
 
             for (int i = 0; i < mainForm.grid_WaypointsCreator_Waypoints.Rows.Count; i++)
             {
