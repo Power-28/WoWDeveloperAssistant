@@ -544,11 +544,12 @@ namespace WoWDeveloperAssistant.Creature_Scripts_Creator
                 return;
 
             scriptName = $"npc_{CreatureScriptTemplate.NormilizeScriptName(defaultName)}_{creature.entry}";
-            scriptBody = $"/// {defaultName} - {creature.entry}" + "\r\n";
+            scriptBody = $"/// @Creature: {defaultName} - {creature.entry}" + "\r\n";
             scriptBody += $"struct {scriptName} : public ScriptedAI" + "\r\n";
-            scriptBody += "{" + "\r\n";
-            scriptBody += $"{AddSpacesCount(4)}explicit {scriptName}(Creature* p_Creature) : ScriptedAI(p_Creature) {{ }}";
+            scriptBody += "{";
             scriptBody += GetEnumsBody();
+            scriptBody += "\r\n\r\n";
+            scriptBody += $"{AddSpacesCount(4)}explicit {scriptName}(Creature* p_Creature) : ScriptedAI(p_Creature) {{ }}";
             scriptBody += GetHooksBody(creature);
             scriptBody += "\r\n" + "};" + "\r\n";
 
@@ -558,20 +559,29 @@ namespace WoWDeveloperAssistant.Creature_Scripts_Creator
         private string GetEnumsBody()
         {
             string body = "";
+            int maxSpellNameLength = 0;
 
-            body += $"\r\n\r\n{AddSpacesCount(4)}enum eSpells\r\n{AddSpacesCount(4)}{{";
-
+            // Calculate the maximum length of the spell names
             for (int l = 0; l < mainForm.dataGridView_CreatureScriptsCreator_Spells.RowCount; l++)
             {
                 Spell spell = (Spell)mainForm.dataGridView_CreatureScriptsCreator_Spells[8, l].Value;
+                maxSpellNameLength = Math.Max(maxSpellNameLength, spell.name.Length);
+            }
+
+            // Create the enum body
+            body += $"\r\n{AddSpacesCount(4)}enum eSpells\r\n{AddSpacesCount(4)}{{";
+            for (int l = 0; l < mainForm.dataGridView_CreatureScriptsCreator_Spells.RowCount; l++)
+            {
+                Spell spell = (Spell)mainForm.dataGridView_CreatureScriptsCreator_Spells[8, l].Value;
+                string spellName = NormilizeName(spell.name);
 
                 if (l == 0)
                 {
-                    body += $"\r\n{AddSpacesCount(8)}{NormilizeName(spell.name)} = {spell.spellId}";
+                    body += $"\r\n{AddSpacesCount(8)}{spellName.PadRight(maxSpellNameLength)} = {spell.spellId}";
                 }
                 else
                 {
-                    body += $",\r\n{AddSpacesCount(8)}{NormilizeName(spell.name)} = {spell.spellId}";
+                    body += $",\r\n{AddSpacesCount(8)}{spellName.PadRight(maxSpellNameLength)} = {spell.spellId}";
                 }
             }
 
@@ -591,17 +601,26 @@ namespace WoWDeveloperAssistant.Creature_Scripts_Creator
             {
                 body += $"\r\n\r\n{AddSpacesCount(4)}enum eEvents\r\n{AddSpacesCount(4)}{{";
 
+                bool isFirstSpell = true;
+                int spellCounter = 0;
+
                 for (int l = 0; l < mainForm.dataGridView_CreatureScriptsCreator_Spells.RowCount; l++)
                 {
                     Spell spell = (Spell)mainForm.dataGridView_CreatureScriptsCreator_Spells[8, l].Value;
 
-                    if (!spell.isDeathSpell && l == 0)
+                    if (!spell.isDeathSpell)
                     {
-                        body += $"\r\n{AddSpacesCount(8)}Cast{NormilizeName(spell.name)} = {l + 1}";
-                    }
-                    else if (!spell.isDeathSpell && l > 0)
-                    {
-                        body += $",\r\n{AddSpacesCount(8)}Cast{NormilizeName(spell.name)} = {l + 1}";
+                        if (isFirstSpell)
+                        {
+                            body += $"\r\n{AddSpacesCount(8)}Cast{NormilizeName(spell.name)} = {spellCounter + 1}";
+                            isFirstSpell = false;
+                        }
+                        else
+                        {
+                            body += $",\r\n{AddSpacesCount(8)}Cast{NormilizeName(spell.name)}";
+                        }
+
+                        spellCounter++;
                     }
                 }
 
