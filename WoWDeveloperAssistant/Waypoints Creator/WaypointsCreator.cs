@@ -1240,20 +1240,15 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
 
             SQLtext += $"-- Pathing for {originalCreature.name} Entry: {originalCreature.entry}\r\n";
             SQLtext += $"SET @LinkedId := 'SET_LINK';\r\n";
-            SQLtext += $"SET @NAMETAG := 'SET_TAG';" + "\r\n\r\n";
+            SQLtext += $"SET @NameTag := 'SET_TAG';" + "\r\n\r\n";
 
             float DefaultOrientation = float.Parse(mainForm.grid_WaypointsCreator_Waypoints[4, 0].Value.ToString());
-            SQLtext += $"UPDATE `creature` SET `NameTag` = @NAMETAG, `spawndist` = 0, `MovementType` = 2, `position_x` = '{waypoints[0].movePosition.x.GetValueWithoutComma()}', `position_y` = '{waypoints[0].movePosition.y.GetValueWithoutComma()}', `position_z` = '{waypoints[0].movePosition.z.GetValueWithoutComma()}', `orientation` = '{DefaultOrientation.GetValueWithoutComma()}' WHERE `linked_id` = @LinkedId;\r\n\r\n";
+            SQLtext += $"UPDATE `creature` SET `NameTag` = @NameTag, `spawndist` = 0, `MovementType` = 2, `position_x` = '{waypoints[0].movePosition.x.GetValueWithoutComma()}', `position_y` = '{waypoints[0].movePosition.y.GetValueWithoutComma()}', `position_z` = '{waypoints[0].movePosition.z.GetValueWithoutComma()}',\r\n`orientation` = '{DefaultOrientation.GetValueWithoutComma()}' WHERE `linked_id` = @LinkedId;\n";
+            SQLtext += $"UPDATE `creature_addon` SET `path_id` = 0 WHERE `linked_id` = @LinkedId;\r\n\r\n";
+            SQLtext += $"SET @LinkedId := (SELECT IFNULL(`linked_id`, 0) FROM `creature` WHERE `id` = {originalCreature.entry} AND `NameTag` = @NameTag);\r\n\r\n";
 
-            SQLtext += $"SET @NEW_LINK := (SELECT IFNULL(`linked_id`, 0) FROM `creature` WHERE `id` = {originalCreature.entry} AND `NameTag` = @NAMETAG);\r\n";
-            SQLtext += $"SET @OLD_PATH := (SELECT IFNULL(`path_id`, 0) FROM `creature_addon` WHERE `linked_id` = @NEW_LINK);" + "\r\n";
-            SQLtext += $"SET @GUID := (SELECT IFNULL(`guid`, 0) FROM `creature` WHERE `linked_id` = @NEW_LINK);" + "\r\n";
-            SQLtext += $"SET @NEW_PATH := @GUID * 10;" + "\r\n\r\n";
-
-            SQLtext += $"UPDATE `creature_addon` SET `path_id` = @NEW_PATH WHERE `linked_id` = @NEW_LINK;" + "\r\n\r\n";
-
-            SQLtext += "DELETE FROM `waypoint_data` WHERE `id` IN (@OLD_PATH, @NEW_PATH);" + "\r\n";
-            SQLtext += "INSERT INTO `waypoint_data` (`id`, `point`, `position_x`, `position_y`, `position_z`, `orientation`, `delay`, `move_type`, `action`, `action_chance`, `speed`, `splineflags`) VALUES" + "\r\n";
+            SQLtext += "DELETE FROM `waypoint_data` WHERE `linked_id` IN (@LinkedId);" + "\r\n";
+            SQLtext += "INSERT INTO `waypoint_data` (`linked_id`, `point`, `position_x`, `position_y`, `position_z`, `orientation`, `delay`, `move_type`, `action`, `action_chance`, `speed`, `splineflags`) VALUES" + "\r\n";
 
             for (int i = 0; i < waypoints.Count; i++)
             {
@@ -1265,11 +1260,11 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
 
                 if (i < (waypoints.Count - 1))
                 {
-                    SQLtext += $"(@NEW_PATH, {(i + 1).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + "),\r\n";
+                    SQLtext += $"(@LinkedId, {(i + 1).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + "),\r\n";
                 }
                 else
                 {
-                    SQLtext += $"(@NEW_PATH, {(i + 1).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + ");\r\n";
+                    SQLtext += $"(@LinkedId, {(i + 1).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + ");\r\n";
                 }
             }
 
