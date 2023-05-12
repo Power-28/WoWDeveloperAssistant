@@ -1243,7 +1243,7 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
             SQLtext += $"SET @NameTag := 'SET_TAG';" + "\r\n\r\n";
 
             float DefaultOrientation = float.Parse(mainForm.grid_WaypointsCreator_Waypoints[4, 0].Value.ToString());
-            SQLtext += $"UPDATE `creature` SET `NameTag` = @NameTag, `spawndist` = 0, `MovementType` = 2, `position_x` = '{waypoints[0].movePosition.x.GetValueWithoutComma()}', `position_y` = '{waypoints[0].movePosition.y.GetValueWithoutComma()}', `position_z` = '{waypoints[0].movePosition.z.GetValueWithoutComma()}',\r\n`orientation` = '{DefaultOrientation.GetValueWithoutComma()}' WHERE `linked_id` = @LinkedId;\n";
+            SQLtext += $"UPDATE `creature` SET `NameTag` = @NameTag, `spawndist` = 0, `MovementType` = 19, `position_x` = '{waypoints[0].movePosition.x.GetValueWithoutComma()}' + 1, `position_y` = '{waypoints[0].movePosition.y.GetValueWithoutComma()}', `position_z` = '{waypoints[0].movePosition.z.GetValueWithoutComma()}',\r\n`orientation` = '{DefaultOrientation.GetValueWithoutComma()}' WHERE `linked_id` = @LinkedId;\n";
             SQLtext += $"UPDATE `creature_addon` SET `path_id` = 0 WHERE `linked_id` = @LinkedId;\r\n\r\n";
             SQLtext += $"SET @LinkedId := (SELECT IFNULL(`linked_id`, 0) FROM `creature` WHERE `id` = {originalCreature.entry} AND `NameTag` = @NameTag);\r\n\r\n";
 
