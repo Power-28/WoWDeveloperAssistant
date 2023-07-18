@@ -12,6 +12,7 @@ using static WoWDeveloperAssistant.Misc.Packets;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection;
 using System.Globalization;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
 
 namespace WoWDeveloperAssistant.Waypoints_Creator
 {
@@ -1243,14 +1244,14 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
             SQLtext += $"SET @NameTag := 'SET_TAG';" + "\r\n\r\n";
 
             float DefaultOrientation = float.Parse(mainForm.grid_WaypointsCreator_Waypoints[4, 0].Value.ToString());
-            SQLtext += $"UPDATE `creature` SET `NameTag` = @NameTag, `spawndist` = 0, `MovementType` = 19, `position_x` = '{waypoints[0].movePosition.x.GetValueWithoutComma()}' + 1, `position_y` = '{waypoints[0].movePosition.y.GetValueWithoutComma()}', `position_z` = '{waypoints[0].movePosition.z.GetValueWithoutComma()}',\r\n`orientation` = '{DefaultOrientation.GetValueWithoutComma()}' WHERE `linked_id` = @LinkedId;\n";
+            SQLtext += $"UPDATE `creature` SET `NameTag` = @NameTag, `spawndist` = 0, `MovementType` = 19, `position_x` = '{waypoints[0].movePosition.x.GetValueWithoutComma()}', `position_y` = '{waypoints[0].movePosition.y.GetValueWithoutComma()}', `position_z` = '{waypoints[0].movePosition.z.GetValueWithoutComma()}',\r\n`orientation` = '{DefaultOrientation.GetValueWithoutComma()}' WHERE `linked_id` = @LinkedId;\n";
             SQLtext += $"UPDATE `creature_addon` SET `path_id` = 0 WHERE `linked_id` = @LinkedId;\r\n\r\n";
             SQLtext += $"SET @LinkedId := (SELECT IFNULL(`linked_id`, 0) FROM `creature` WHERE `id` = {originalCreature.entry} AND `NameTag` = @NameTag);\r\n\r\n";
 
             SQLtext += "DELETE FROM `waypoint_data` WHERE `linked_id` IN (@LinkedId);" + "\r\n";
             SQLtext += "INSERT INTO `waypoint_data` (`linked_id`, `point`, `position_x`, `position_y`, `position_z`, `orientation`, `delay`, `move_type`, `action`, `action_chance`, `speed`, `splineflags`) VALUES" + "\r\n";
 
-            for (int i = 0; i < waypoints.Count; i++)
+            for (int i = 1; i < waypoints.Count; i++)
             {
                 Waypoint waypoint = waypoints[i];
                 float orientation = waypoint.HasOrientation() ? waypoint.orientation : float.Parse(mainForm.grid_WaypointsCreator_Waypoints[4, i].Value.ToString());
@@ -1260,11 +1261,21 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
 
                 if (i < (waypoints.Count - 1))
                 {
-                    SQLtext += $"(@LinkedId, {(i + 1).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + "),\r\n";
+                    if (i == ((waypoints.Count - 1) / 2))
+                    {
+                        delay = 10000;
+                    }
+                    else
+                    {
+                        delay = 0;
+                    }
+
+                    SQLtext += $"(@LinkedId, {(i).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + "),\r\n";
                 }
                 else
                 {
-                    SQLtext += $"(@LinkedId, {(i + 1).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + ");\r\n";
+                    delay = 10000;
+                    SQLtext += $"(@LinkedId, {(i).ToString().PadLeft(2)}, {waypoint.movePosition.x.ToString("F3")}, {waypoint.movePosition.y.ToString("F3")}, {waypoint.movePosition.z.ToString("F4")}, {0}, {delay}, {0}, {waypoint.GetScriptId()}, 100, {0}, {2056}" + ");\r\n";
                 }
             }
 
