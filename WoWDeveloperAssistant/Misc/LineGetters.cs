@@ -187,6 +187,10 @@ namespace WoWDeveloperAssistant.Misc
                         return BuildVersions.BUILD_10_0_7;
                     else if (line.Contains("V10_1_0"))
                         return BuildVersions.BUILD_10_1_0;
+                    else if (line.Contains("V10_1_5"))
+                        return BuildVersions.BUILD_10_1_5;
+                    else if (line.Contains("V10_1_7"))
+                        return BuildVersions.BUILD_10_1_7;
 
                     return BuildVersions.BUILD_UNKNOWN;
                 }
@@ -200,9 +204,7 @@ namespace WoWDeveloperAssistant.Misc
             Regex entryRegex = new Regex(@"Entry:{1}\s*\d+");
 
             if (entryRegex.IsMatch(line))
-            {
                 return entryRegex.Match(line).ToString().Replace("Entry: ", "");
-            }
 
             return "";
         }
@@ -212,9 +214,7 @@ namespace WoWDeveloperAssistant.Misc
             Regex entryRegex = new Regex(@"SpellID:{1}\s*\d+");
 
             if (entryRegex.IsMatch(line))
-            {
                 return entryRegex.Match(line).ToString().Replace("SpellID: ", "");
-            }
 
             return "";
         }
@@ -241,9 +241,7 @@ namespace WoWDeveloperAssistant.Misc
             Regex linkedIdRegex = new Regex(@"'\S+'");
 
             if (linkedIdRegex.IsMatch(line))
-            {
                 return linkedIdRegex.Match(line).ToString().Replace("'", "");
-            }
 
             return "";
         }
@@ -253,9 +251,7 @@ namespace WoWDeveloperAssistant.Misc
             Regex entryRegex = new Regex(@"'\S+', \w+");
 
             if (entryRegex.IsMatch(line))
-            {
                 return Convert.ToUInt32(entryRegex.Match(line).ToString().Split(' ')[1]);
-            }
 
             return 0;
         }
@@ -265,9 +261,7 @@ namespace WoWDeveloperAssistant.Misc
             Regex zoneIdRegex = new Regex(@"\w+, \w+, '.+'{1}");
 
             if (zoneIdRegex.IsMatch(line))
-            {
                 return Convert.ToUInt32(zoneIdRegex.Match(line).ToString().Split(',')[0].Replace(",", ""));
-            }
 
             return 0;
         }
@@ -277,9 +271,7 @@ namespace WoWDeveloperAssistant.Misc
             Regex phaseIdRegex = new Regex(@" '.+'{1}, \w{1}, \w+");
 
             if (phaseIdRegex.IsMatch(line))
-            {
                 return Convert.ToUInt32(phaseIdRegex.Match(line).ToString().Split(',')[2].Replace(" ", ""));
-            }
 
             return 0;
         }
@@ -292,20 +284,26 @@ namespace WoWDeveloperAssistant.Misc
             if (line.Contains("ObjectGuid"))
             {
                 if (creatureNameByObjectGuidRegex.IsMatch(line))
-                {
                     return creatureNameByObjectGuidRegex.Match(line).ToString().Replace("--  ", "").Replace("-- ", "").Replace(" (ObjectGuid:", "").Replace("(", "").Replace(")", "");
-                }
             }
             else
             {
                 if (creatureNameByAreaRegex.IsMatch(line))
-                {
                     return creatureNameByAreaRegex.Match(line).ToString().Replace("--  ", "").Replace("-- ", "").Replace(" (Area:", "").Replace("(", "").Replace(")", "");
-                }
             }
 
 
             return "";
+        }
+
+        public static uint GetMapIdFromLine(string line)
+        {
+            Regex mapIdRegex = new Regex(@"'\S+', \w+, \w+");
+
+            if (mapIdRegex.IsMatch(line))
+                return Convert.ToUInt32(mapIdRegex.Match(line).ToString().Split(' ')[2]);
+
+            return 0;
         }
     }
 }
