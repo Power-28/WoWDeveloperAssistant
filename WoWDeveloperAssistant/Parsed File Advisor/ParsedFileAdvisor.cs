@@ -11,6 +11,7 @@ using WoWDeveloperAssistant.Creature_Scripts_Creator;
 using WoWDeveloperAssistant.Misc;
 using WoWDeveloperAssistant.Waypoints_Creator;
 using static WoWDeveloperAssistant.Misc.Packets;
+using static WoWDeveloperAssistant.Misc.Packets.UpdateObjectPacket;
 using static WoWDeveloperAssistant.Misc.Utils;
 
 namespace WoWDeveloperAssistant.Parsed_File_Advisor
@@ -27,6 +28,9 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
         public List<QuestUpdateCompletePacket> questCompletePackets = new List<QuestUpdateCompletePacket>();
         public List<PlayerMovePacket> playerMovePackets = new List<PlayerMovePacket>();
         public List<QuestUpdateAddCreditPacket> addCreditPackets = new List<QuestUpdateAddCreditPacket>();
+        public Dictionary<string, List<UpdateObjectPacket>> playerCompletedQuestPackets = new Dictionary<string, List<UpdateObjectPacket>>();
+        public List<InitWorldStatesPacket> initWorldStatesPackets = new List<InitWorldStatesPacket>();
+        public List<UpdateWorldStatePacket> updateWorldStatePackets = new List<UpdateWorldStatePacket>();
 
         public ParsedFileAdvisor(MainForm mainForm)
         {
@@ -69,43 +73,7 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
             Parallel.For(0, lines.Length, index =>
             {
                 Packet.PacketTypes packetType = Packet.GetPacketTypeFromLine(lines[index]);
-
-                if (packetType == Packet.PacketTypes.SMSG_UPDATE_OBJECT && !packetIndexes.ContainsKey(index))
-                {
-                    lock (packetIndexes)
-                        packetIndexes.Add(index, packetType);
-                }
-                else if ((packetType == Packet.PacketTypes.SMSG_SPELL_START || packetType == Packet.PacketTypes.SMSG_SPELL_GO) && !packetIndexes.ContainsKey(index))
-                {
-                    lock (packetIndexes)
-                        packetIndexes.Add(index, packetType);
-                }
-                else if (packetType == Packet.PacketTypes.SMSG_CHAT && !packetIndexes.ContainsKey(index))
-                {
-                    lock (packetIndexes)
-                        packetIndexes.Add(index, packetType);
-                }
-                else if (Packet.IsQuestPacket(packetType) && !packetIndexes.ContainsKey(index))
-                {
-                    lock (packetIndexes)
-                        packetIndexes.Add(index, packetType);
-                }
-                else if (Packet.IsPlayerMovePacket(packetType) && !packetIndexes.ContainsKey(index))
-                {
-                    lock (packetIndexes)
-                        packetIndexes.Add(index, packetType);
-                }
-                else if(packetType == Packet.PacketTypes.SMSG_ON_MONSTER_MOVE && !packetIndexes.ContainsKey(index))
-                {
-                    lock (packetIndexes)
-                        packetIndexes.Add(index, packetType);
-                }
-                else if(packetType == Packet.PacketTypes.SMSG_AI_REACTION && !packetIndexes.ContainsKey(index))
-                {
-                    lock (packetIndexes)
-                        packetIndexes.Add(index, packetType);
-                }
-                else if(packetType == Packet.PacketTypes.SMSG_ATTACK_STOP && !packetIndexes.ContainsKey(index))
+                if (packetType != Packet.PacketTypes.UNKNOWN_PACKET && !packetIndexes.ContainsKey(index))
                 {
                     lock (packetIndexes)
                         packetIndexes.Add(index, packetType);
@@ -116,9 +84,9 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
             {
                 if (value.Value == Packet.PacketTypes.SMSG_UPDATE_OBJECT)
                 {
-                    Parallel.ForEach(UpdateObjectPacket.ParseObjectUpdatePacket(lines, value.Key, buildVersion, 0), packet =>
+                    Parallel.ForEach(ParseObjectUpdatePacket(lines, value.Key, buildVersion, 0), packet =>
                     {
-                        if (packet.objectType == UpdateObjectPacket.ObjectTypes.Conversation)
+                        if (packet.objectType == ObjectTypes.Conversation)
                         {
                             lock (conversationPackets)
                             {
@@ -126,6 +94,20 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
                                 if (existedUpdateObjectPacket.entry == 0)
                                 {
                                     conversationPackets.Add(packet);
+                                }
+                            }
+                        }
+                        else if (packet.questCompletedData.Count != 0)
+                        {
+                            lock (playerCompletedQuestPackets)
+                            {
+                                if (playerCompletedQuestPackets.ContainsKey(packet.guid))
+                                {
+                                    playerCompletedQuestPackets[packet.guid].Add(packet);
+                                }
+                                else
+                                {
+                                    playerCompletedQuestPackets.Add(packet.guid, new List<UpdateObjectPacket>() { packet });
                                 }
                             }
                         }
@@ -378,6 +360,36 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
                 }
             });
 
+            Parallel.ForEach(packetIndexes.AsEnumerable(), value =>
+            {
+                if (value.Value == Packet.PacketTypes.SMSG_INIT_WORLD_STATES)
+                {
+                    InitWorldStatesPacket initWorldStatesPacket = InitWorldStatesPacket.ParseInitWorldStatesPacket(lines, value.Key);
+                    if (initWorldStatesPacket.worldStates.Count == 0)
+                        return;
+
+                    lock (initWorldStatesPackets)
+                    {
+                        initWorldStatesPackets.Add(initWorldStatesPacket);
+                    }
+                }
+            });
+
+            Parallel.ForEach(packetIndexes.AsEnumerable(), value =>
+            {
+                if (value.Value == Packet.PacketTypes.SMSG_UPDATE_WORLD_STATE)
+                {
+                    UpdateWorldStatePacket updateWorldStatePacket = UpdateWorldStatePacket.ParseUpdateWorldStatePacket(lines, value.Key);
+                    if (updateWorldStatePacket.worldState.Key == 0)
+                        return;
+
+                    lock (updateWorldStatePackets)
+                    {
+                        updateWorldStatePackets.Add(updateWorldStatePacket);
+                    }
+                }
+            });
+
             if (mainForm.checkBox_ParsedFileAdvisor_CreateDataFile.Checked)
             {
                 BinaryFormatter binaryFormatter = new BinaryFormatter();
@@ -388,15 +400,18 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
                     {
                         Dictionary<uint, object> dictToSerialize = new Dictionary<uint, object>
                         {
-                            { 0, creatures            },
-                            { 1, conversationPackets  },
-                            { 2, creatureTexts        },
-                            { 3, spellPackets         },
-                            { 4, questAcceptPackets   },
-                            { 5, questCompletePackets },
-                            { 6, questRewardPackets   },
-                            { 7, playerMovePackets    },
-                            { 8, addCreditPackets     }
+                            { 0,  creatures                   },
+                            { 1,  conversationPackets         },
+                            { 2,  creatureTexts               },
+                            { 3,  spellPackets                },
+                            { 4,  questAcceptPackets          },
+                            { 5,  questCompletePackets        },
+                            { 6,  questRewardPackets          },
+                            { 7,  playerMovePackets           },
+                            { 8,  addCreditPackets            },
+                            { 9,  playerCompletedQuestPackets },
+                            { 10, initWorldStatesPackets      },
+                            { 11, updateWorldStatePackets     }
                         };
 
                         binaryFormatter.Serialize(fileStream, dictToSerialize);
@@ -408,15 +423,18 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
                     {
                         Dictionary<uint, object> dictToSerialize = new Dictionary<uint, object>
                         {
-                            { 0, creatures            },
-                            { 1, conversationPackets  },
-                            { 2, creatureTexts        },
-                            { 3, spellPackets         },
-                            { 4, questAcceptPackets   },
-                            { 5, questCompletePackets },
-                            { 6, questRewardPackets   },
-                            { 7, playerMovePackets    },
-                            { 8, addCreditPackets     }
+                            { 0, creatures                   },
+                            { 1, conversationPackets         },
+                            { 2, creatureTexts               },
+                            { 3, spellPackets                },
+                            { 4, questAcceptPackets          },
+                            { 5, questCompletePackets        },
+                            { 6, questRewardPackets          },
+                            { 7, playerMovePackets           },
+                            { 8, addCreditPackets            },
+                            { 9, playerCompletedQuestPackets },
+                            { 10, initWorldStatesPackets     },
+                            { 11, updateWorldStatePackets    }
                         };
 
                         binaryFormatter.Serialize(fileStream, dictToSerialize);
@@ -448,6 +466,9 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
             List<QuestGiverQuestCompletePacket> questRewardPacketsFromSerialize = (List<QuestGiverQuestCompletePacket>)dictFromSerialize[6];
             List<PlayerMovePacket> playerMovePacketsFromSerialize = (List<PlayerMovePacket>)dictFromSerialize[7];
             List<QuestUpdateAddCreditPacket> addCreditPacketsFromSerialize = (List<QuestUpdateAddCreditPacket>)dictFromSerialize[8];
+            Dictionary<string, List<UpdateObjectPacket>> playerCompletedQuestPacketsFromSerialize = (Dictionary<string, List<UpdateObjectPacket>>)dictFromSerialize[9];
+            List<InitWorldStatesPacket> initWorldStatesPacketsFromSerialize = (List<InitWorldStatesPacket>)dictFromSerialize[10];
+            List<UpdateWorldStatePacket> updateWorldStatePacketsFromSerialize = (List<UpdateWorldStatePacket>)dictFromSerialize[11];
 
             if (multiSelect)
             {
@@ -460,6 +481,9 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
                 questRewardPackets = questRewardPackets.Concat(questRewardPacketsFromSerialize.Where(x => !questRewardPackets.Contains(x))).ToList();
                 playerMovePackets = playerMovePackets.Concat(playerMovePacketsFromSerialize.Where(x => !playerMovePackets.Contains(x))).ToList();
                 addCreditPackets = addCreditPackets.Concat(addCreditPacketsFromSerialize.Where(x => !addCreditPackets.Contains(x))).ToList();
+                playerCompletedQuestPackets = playerCompletedQuestPackets.Concat(playerCompletedQuestPacketsFromSerialize.Where(x => !playerCompletedQuestPackets.Contains(x))).ToDictionary(x => x.Key, x => x.Value);
+                initWorldStatesPackets = initWorldStatesPackets.Concat(initWorldStatesPacketsFromSerialize.Where(x => !initWorldStatesPackets.Contains(x))).ToList();
+                updateWorldStatePackets = updateWorldStatePackets.Concat(updateWorldStatePacketsFromSerialize.Where(x => !updateWorldStatePackets.Contains(x))).ToList();
             }
             else
             {
@@ -472,6 +496,9 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
                 questRewardPackets = questRewardPacketsFromSerialize;
                 playerMovePackets = playerMovePacketsFromSerialize;
                 addCreditPackets = addCreditPacketsFromSerialize;
+                playerCompletedQuestPackets = playerCompletedQuestPacketsFromSerialize;
+                initWorldStatesPackets = initWorldStatesPacketsFromSerialize;
+                updateWorldStatePackets = updateWorldStatePacketsFromSerialize;
             }
 
             return true;
@@ -506,6 +533,7 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
             mainForm.textBox_ParsedFileAdvisor_QuestConversationsOrTexts.Enabled = true;
             mainForm.textBox_ParsedFileAdvisor_LosConversationsOrTexts.Enabled = true;
             mainForm.textBox_ParsedFileAdvisor_CreatureEquipmentId.Enabled = true;
+            mainForm.textBox_ParsedFileAdvisor_PlayerCompletedQuests.Enabled = true;
             mainForm.Update();
         }
         public void ImportFailed()
@@ -1236,6 +1264,79 @@ namespace WoWDeveloperAssistant.Parsed_File_Advisor
                 return true;
 
             return false;
+        }
+
+        public void GetPlayerCompletedQuests()
+        {
+            if (mainForm.textBox_ParsedFileAdvisor_PlayerCompletedQuests.Text == "" || !playerCompletedQuestPackets.ContainsKey(mainForm.textBox_ParsedFileAdvisor_PlayerCompletedQuests.Text))
+                return;
+
+            string output = "";
+            List<UpdateObjectPacket> updateObjectPackets = playerCompletedQuestPackets[mainForm.textBox_ParsedFileAdvisor_PlayerCompletedQuests.Text].OrderBy(x => x.packetSendTime).ToList();
+            Dictionary<TimeSpan, List<int>> convertedQuestData = new Dictionary<TimeSpan, List<int>>();
+
+            foreach (UpdateObjectPacket packet in updateObjectPackets)
+            {
+                foreach (QuestCompletedData questData in packet.questCompletedData)
+                {
+                    List<int> questBits = new List<int>();
+
+                    int l_FieldOffset = (questData.Index << 6) + 1;
+
+                    for (int i = 1; i < 65; i++)
+                    {
+                        if ((questData.Flags & ((ulong)1 << (i - 1))) != 0)
+                        {
+                            questBits.Add(l_FieldOffset);
+                        }
+
+                        l_FieldOffset += 1;
+                    }
+
+                    foreach (var questBit in questBits)
+                    {
+                        if (!DB2.Db2.QuestBitsStore.ContainsKey(questBit))
+                            continue;
+
+                        if (!convertedQuestData.ContainsKey(packet.packetSendTime))
+                        {
+                            convertedQuestData.Add(packet.packetSendTime, new List<int> { DB2.Db2.QuestBitsStore[questBit] });
+                        }
+                        else
+                        {
+                            convertedQuestData[packet.packetSendTime].Add(DB2.Db2.QuestBitsStore[questBit]);
+                        }
+                    }
+                }
+            }
+
+            for (int i = 1; i < convertedQuestData.Count; i++)
+            {
+                var exceptedQuests = convertedQuestData.ElementAt(i).Value.Except(convertedQuestData.ElementAt(i - 1).Value).ToList();
+
+                if (exceptedQuests.Count != 0)
+                {
+                    output += $"Player has new completed quests after {convertedQuestData.ElementAt(i).Key.ToFormattedString()}:\r\n";
+
+                    foreach (uint questId in exceptedQuests)
+                    {
+                        string questName = MainForm.GetQuestNameById(questId);
+                        if (questName == "Unknown")
+                        {
+                            questName = "Server Side Quest";
+                        }
+
+                        output += $"QuestId: {questId} ({questName})\r\n";
+                    }
+                }
+            }
+
+            mainForm.textBox_ParsedFileAdvisor_Output.Text = output;
+        }
+
+        public void ShowWorldStates()
+        {
+
         }
     }
 }

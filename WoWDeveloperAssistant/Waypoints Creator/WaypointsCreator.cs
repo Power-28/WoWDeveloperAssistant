@@ -10,9 +10,6 @@ using WoWDeveloperAssistant.Misc;
 using static WoWDeveloperAssistant.Misc.Utils;
 using static WoWDeveloperAssistant.Misc.Packets;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Reflection;
-using System.Globalization;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
 
 namespace WoWDeveloperAssistant.Waypoints_Creator
 {
@@ -1688,7 +1685,10 @@ namespace WoWDeveloperAssistant.Waypoints_Creator
 
                 foreach (DataRow row in creaturePositionsDs.Tables["table"].Rows)
                 {
-                    dbCreatures.Add(row.ItemArray[0].ToString(), new Creature() { entry = (uint)row.ItemArray[1], spawnPosition = new Position((float)row.ItemArray[2], (float)row.ItemArray[3], (float)row.ItemArray[4], (float)row.ItemArray[5]) });
+                    if (!dbCreatures.ContainsKey(row.ItemArray[0].ToString()))
+                    {
+                        dbCreatures.Add(row.ItemArray[0].ToString(), new Creature() { entry = (uint)row.ItemArray[1], spawnPosition = new Position((float)row.ItemArray[2], (float)row.ItemArray[3], (float)row.ItemArray[4], (float)row.ItemArray[5]) });
+                    }
                 }
 
                 foreach (var possibleCreature in dbCreatures)
