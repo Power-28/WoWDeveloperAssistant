@@ -507,7 +507,7 @@ namespace WoWDeveloperAssistant
 
         private void createRandomMovementsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            waypointsCreator.AddRandomMovement();
+            waypointsCreator.CreateRandomMovements();
         }
 
         private void textBox_DatabaseAdvisor_FindDoublePaths_KeyDown(object sender, KeyEventArgs e)
@@ -821,6 +821,14 @@ namespace WoWDeveloperAssistant
         private void button_ParsedFileAdvisor_WorldStates_Click(object sender, EventArgs e)
         {
             parsedFileAdvisor.ShowWorldStates();
+        }
+
+        private void textBox_ParsedFileAdvisor_ParseQuestgiverData_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode != Keys.Enter)
+                return;
+
+            parsedFileAdvisor.ParseQuestgiverData();
         }
     }
 }
