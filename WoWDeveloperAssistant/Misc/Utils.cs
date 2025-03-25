@@ -43,7 +43,7 @@ namespace WoWDeveloperAssistant.Misc
             BUILD_11_0_2,
             BUILD_11_0_5,
             BUILD_11_0_7,
-            BUILD_11_1_1,
+            BUILD_11_1_0,
             BUILD_11_1_5,
         };
 
